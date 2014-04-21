@@ -27,8 +27,11 @@ function UUID(){this.id=this.createUUID()}UUID.prototype.valueOf=function(){retu
 		var roomId = $("#roomId").val();
 		
 		var wsURI = wsURIPre + "/" + roomId;
-		
-		webSocket = new WebSocket(wsURI);
+		try{
+			webSocket = new WebSocket(wsURI);
+		}catch(exception){
+			alert("error occurs when open connection.");
+		}
 		
 		isLoginOrSend = 0;
 		
@@ -42,6 +45,9 @@ function UUID(){this.id=this.createUUID()}UUID.prototype.valueOf=function(){retu
 
 		webSocket.onmessage = function(event) {
 			onMessage(event)
+		};
+		webSocket.onclose = function(event) {
+			onClose(event)
 		};
 		
 		
@@ -77,9 +83,6 @@ function UUID(){this.id=this.createUUID()}UUID.prototype.valueOf=function(){retu
 			alert("error occurs when send data");
 		}
 		
-	    
-	    
-		
 	}
 	
 	function onMessage(event) {
@@ -89,12 +92,13 @@ function UUID(){this.id=this.createUUID()}UUID.prototype.valueOf=function(){retu
 			if(event.data == "success"){
 				
 				$("#chatName").attr("disabled","disabled");
-				$("#room").attr("disabled","disabled");
+				$("#roomId").attr("disabled","disabled");
 				$("#btnSign").attr("disabled","disabled");
 				
 				$("#show").css("background-color","white");
 				$("#input").removeAttr("disabled");
 				$("#btnSend").removeAttr("disabled");
+				$("#btnLog").removeAttr("disabled");
 			}else{
 				
 			}
@@ -116,8 +120,6 @@ function UUID(){this.id=this.createUUID()}UUID.prototype.valueOf=function(){retu
 		}
 		
 		//set the show scroll to the bottom
-		
-		
 	}
 
 	function onOpen(event) {
@@ -127,6 +129,28 @@ function UUID(){this.id=this.createUUID()}UUID.prototype.valueOf=function(){retu
 
 	function onError(event) {
 		alert("error occurs:" + event.data);
+	}
+	
+	function onClose(event){
+		//alert("connection is closed:" + event.data);
+	}
+	
+	function closeConnection(){
+		try{
+			webSocket.close();
+			
+			$("#chatName").removeAttr("disabled");
+			$("#roomId").removeAttr("disabled");
+			$("#btnSign").removeAttr("disabled");
+			
+			$("#show").css("background-color","grey");
+			$("#show").html("");
+			$("#input").html("");
+			$("#btnSend").attr("disabled","disabled");
+			$("#btnLog").attr("disabled","disabled");
+		}catch(exception){
+			alert("error occurs when close connection.");
+		}
 	}
 
 	function start() {
@@ -141,8 +165,11 @@ function UUID(){this.id=this.createUUID()}UUID.prototype.valueOf=function(){retu
 		var msgJSON=JSON.stringify(message); //将JSON对象转化为JSON字符
 		
 	    //alert(msgJSON);
-		
-		webSocket.send(msgJSON);
+		try{
+			webSocket.send(msgJSON);
+		}catch(exception){
+			alert("error occurs when send data");
+		}
 	}
 	
 	function getToUser(obj){
@@ -166,7 +193,7 @@ function UUID(){this.id=this.createUUID()}UUID.prototype.valueOf=function(){retu
 					+ "</p>"
 					+ "<p style='color: black;font-size: medium;'>" + message + "</p>";
 		content.append(str1);
-		$("#send").html("");
+		$("#input").html("");
 		setShowScrollToBottom();
 	}
 	
@@ -193,13 +220,14 @@ function UUID(){this.id=this.createUUID()}UUID.prototype.valueOf=function(){retu
        <h2 class="form-signin-heading">Chat Room</h2>
        <div id="divLogin">
        <input type="text" class="" placeholder="Chat Name" required autofocus id="chatName" />
-       <select name="room" id="roomId">
+       <select name="room" id="roomId" >
        		<option value="1">Music</option>
        		<option value="2">Love</option>
        		<option value="3">Sports</option>
        </select>
        	
        <button class="" type="button" onclick="login();" id="btnSign">Sign in</button>
+       <button class="" type="button" onclick="closeConnection();" id="btnLog" disabled="disabled">Log Out</button>
 		</div>
 		<br/>
 		<div id="divChat" style="">
