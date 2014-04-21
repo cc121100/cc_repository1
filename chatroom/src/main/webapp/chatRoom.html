@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Chat Room</title>
+<script type="text/javascript">
+function UUID(){this.id=this.createUUID()}UUID.prototype.valueOf=function(){return this.id};UUID.prototype.toString=function(){return this.id};UUID.prototype.createUUID=function(){var c=new Date(1582,10,15,0,0,0,0);var f=new Date();var h=f.getTime()-c.getTime();var i=UUID.getIntegerBits(h,0,31);var g=UUID.getIntegerBits(h,32,47);var e=UUID.getIntegerBits(h,48,59)+"2";var b=UUID.getIntegerBits(UUID.rand(4095),0,7);var d=UUID.getIntegerBits(UUID.rand(4095),0,7);var a=UUID.getIntegerBits(UUID.rand(8191),0,7)+UUID.getIntegerBits(UUID.rand(8191),8,15)+UUID.getIntegerBits(UUID.rand(8191),0,7)+UUID.getIntegerBits(UUID.rand(8191),8,15)+UUID.getIntegerBits(UUID.rand(8191),0,15);return i+g+e+b+d+a};UUID.getIntegerBits=function(f,g,b){var a=UUID.returnBase(f,16);var d=new Array();var e="";var c=0;for(c=0;c<a.length;c++){d.push(a.substring(c,c+1))}for(c=Math.floor(g/4);c<=Math.floor(b/4);c++){if(!d[c]||d[c]==""){e+="0"}else{e+=d[c]}}return e};UUID.returnBase=function(c,d){var e=["0","1","2","3","4","5","6","7","8","9","A","B","C","D","E","F","G","H","I","J","K","L","M","N","O","P","Q","R","S","T","U","V","W","X","Y","Z"];if(c<d){var b=e[c]}else{var f=""+Math.floor(c/d);var a=c-f*d;if(f>=d){var b=this.returnBase(f,d)+e[a]}else{var b=e[f]+e[a]}}return b};UUID.rand=function(a){return Math.floor(Math.random()*a)};
+</script>
+<script language="javascript" src="/chatroom/static/js/jquery-1.8.3.min.js"></script>
+<script language="javascript" src="/chatroom/static/bootstrap/js/bootstrap.min.js"></script>
+<link href="/chatroom/static/bootstrap/css/bootstrap.min.css" rel="stylesheet" type="text/css"/>
+<link href="/chatroom/static/bootstrap/css/bootstrap-theme.min.css" rel="stylesheet" type="text/css"/>
+
+<script type="text/javascript">
+
+	var wsURIPre = "ws://localhost:7777//chatroom/cr";
+	var webSocket;
+	var isLoginOrSend = 0;
+	var uuid = new UUID().id;
+	
+	$(function(){
+		
+	});
+	
+	function login(){
+		
+		var roomId = $("#roomId").val();
+		
+		var wsURI = wsURIPre + "/" + roomId;
+		
+		webSocket = new WebSocket(wsURI);
+		
+		isLoginOrSend = 0;
+		
+		webSocket.onerror = function(event) {
+			onError(event)
+		};
+
+		webSocket.onopen = function(event) {
+			onOpen(event)
+		};
+
+		webSocket.onmessage = function(event) {
+			onMessage(event)
+		};
+		
+		
+	}
+	
+	function send(){
+		
+		var message = new Object();
+		message.msgType = "chat";
+		message.date =dateFormat(new Date(),"yyyy-MM-dd hh:mm:ss");
+		message.userId = uuid;
+		message.message = $("#input").text();
+		message.roomId = $("#roomId").val();
+		message.userName = $("#chatName").val();
+		var $button = $("#input > input");
+		if($button.length > 0){
+			alert("button is not undefined");
+			message.to = $button.attr('name');
+		}
+		
+		var msgJSON=JSON.stringify(message); //将JSON对象转化为JSON字符
+	    alert(msgJSON);
+		
+		try{
+		    webSocket.send(msgJSON);
+		    if(message.to != null && message.to != ''){
+			    appendChatToShow(message.userId, $button.attr('n'),message.date,message.message,'1');
+		    }else{
+		    	appendChatToShow(message.userId, message.userName,message.date,message.message,'0');
+		    }
+		    
+		}catch(exception){
+			alert("error occurs when send data");
+		}
+		
+	    
+	    
+		
+	}
+	
+	function onMessage(event) {
+		if(isLoginOrSend == 0){
+			isLoginOrSend = 1;
+			//alert(event.data);
+			if(event.data == "success"){
+				
+				$("#chatName").attr("disabled","disabled");
+				$("#room").attr("disabled","disabled");
+				$("#btnSign").attr("disabled","disabled");
+				
+				$("#show").css("background-color","white");
+				$("#input").removeAttr("disabled");
+				$("#btnSend").removeAttr("disabled");
+			}else{
+				
+			}
+		}else if(isLoginOrSend == 1){
+			var message = JSON.parse(event.data);
+			
+			if(message.msgType == 'login'){
+				appendLoginOrExitToShow(message.userName,message.date,"has enter the room.");
+			}else if(message.msgType == 'exit'){
+				appendLoginOrExitToShow(message.userName,message.date,"has left the room.");
+			}else if(message.msgType == 'chat'){
+				if(message.to != null && message.to != ''){
+					appendChatToShow(message.userId,message.userName,message.date,message.message,'2');
+				}else{
+					appendChatToShow(message.userId,message.userName,message.date,message.message,'0');
+				}
+			}
+			
+		}
+		
+		//set the show scroll to the bottom
+		
+		
+	}
+
+	function onOpen(event) {
+		start();
+		
+	}
+
+	function onError(event) {
+		alert("error occurs:" + event.data);
+	}
+
+	function start() {
+		var message = new Object();
+		message.msgType = "login";
+		message.date =dateFormat(new Date(),"yyyy-MM-dd hh:mm:ss");
+		message.userId = uuid;
+		message.userName = $("#chatName").val();
+		message.roomId = $("#roomId").val();
+		message.newRoomId = "";
+		
+		var msgJSON=JSON.stringify(message); //将JSON对象转化为JSON字符
+		
+	    //alert(msgJSON);
+		
+		webSocket.send(msgJSON);
+	}
+	
+	function getToUser(obj){
+		$("#input").html('');
+		/* $("#input").html('<span>@'+$(obj).html()+':</span>'); */
+		$("#input").html("<input type='button' class='atBtn' name='" + $(obj).attr('id')  + "' value='@" +$(obj).html()  + ":' n='" + $(obj).html()  +"'/>");
+	}
+	
+	function appendChatToShow(userId,userName,date,message,tag){
+		var content = $("#show");
+		var href = "<a href='javascript:void(0)' onclick='getToUser(this);' class='toHref' id='" + userId  +"'>";
+		if(tag == '0'){
+			href = href + userName + "</a> ";
+		}else if(tag == '1'){
+			href = "you to " + href +userName + "</a> ";
+		}else if(tag == '2'){
+			href = href + userName +"</a> to you " ;
+		}
+		var str1 = "<p style='color: blue;'>" 
+					+ href + date 
+					+ "</p>"
+					+ "<p style='color: black;font-size: medium;'>" + message + "</p>";
+		content.append(str1);
+		$("#send").html("");
+		setShowScrollToBottom();
+	}
+	
+	function appendLoginOrExitToShow(userName,date,message){
+		var content = $("#show");
+		var str1 = "<p style='color: red;'>" 
+			+ date + " " + userName + " " + message
+			+ "</p>";
+		content.append(str1);
+		setShowScrollToBottom();
+	}
+	
+	function setShowScrollToBottom(){
+		var $div = $('#show');  
+		$div.scrollTop($div[0].scrollHeight); 
+	}
+	
+	
+</script>
+</head>
+<body>
+	<div class="container">
+
+       <h2 class="form-signin-heading">Chat Room</h2>
+       <div id="divLogin">
+       <input type="text" class="" placeholder="Chat Name" required autofocus id="chatName" />
+       <select name="room" id="roomId">
+       		<option value="1">Music</option>
+       		<option value="2">Love</option>
+       		<option value="3">Sports</option>
+       </select>
+       	
+       <button class="" type="button" onclick="login();" id="btnSign">Sign in</button>
+		</div>
+		<br/>
+		<div id="divChat" style="">
+			<div id="show" style="width: 600px;height: 200px;background-color: grey;overflow-y:scroll;overflow-x:hidden;border: thin black solid;"></div>
+			<div id='input' style="height:80px;width:500px;overflow:auto;overflow-x:hidden;border: thin black solid;" disabled="disabled" contentEditable = "true"></div>
+			<button class="" type="button" disabled="disabled" id="btnSend" onclick="send();">Send</button>
+		</div>
+		
+		<a ></a>
+    </div>
+</body>
+<script>
+function dateFormat(date, format) {
+var o = {
+"M+": date.getMonth() + 1, //month
+"d+": date.getDate(), //day
+"h+": date.getHours(), //hour
+"m+": date.getMinutes(), //minute
+"s+": date.getSeconds(), //second
+"q+": Math.floor((date.getMonth() + 3) / 3), //quarter
+"S": date.getMilliseconds() //millisecond
+};
+if (/(y+)/.test(format)) {
+format = format.replace(RegExp.$1, (date.getFullYear() + "").substr(4 - RegExp.$1.length));
+}
+for (var k in o) {
+if (new RegExp("(" + k + ")").test(format)) {
+format = format.replace(RegExp.$1, RegExp.$1.length == 1 ? (("000" + o[k]).substr(("" + o[k]).length)) : ("00" + o[k]).substr(("" + o[k]).length));
+}
+}
+return format;
+}
+</script>
+
+
+
+</html>
